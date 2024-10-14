@@ -38,27 +38,30 @@ void lrstrip(std::string &str, bool lstrip = true, bool rstrip = true)
 {
     if  (str.length() != 0)
     {
-        std::string w = " ";
-        std::string n = "\n" ;
-        std::string r = "\r" ;
-        std::string t = "\t" ;
+        std::vector<std::string> emp_chars = {" ", "\t", ","};
 
         auto v = std::string(1 ,str.front()); 
         if(lstrip)
         {
-            while((v == w) || (v==t) || (v==r) || (v==n))
+            for(auto emp_char: emp_chars)
             {
-                str.erase(str.begin());
-                v = std::string(1 ,str.front());
+                while(v == emp_char)
+                {
+                    str.erase(str.begin());
+                    v = std::string(1 ,str.front());
+                }
             }
         }
         v = std::string(1 , str.back()); 
         if(rstrip)
         {
-            while((v ==w) || (v==t) || (v==r) || (v==n))
+            for(auto emp_char: emp_chars)
             {
-                str.erase(str.end() - 1 );
-                v = std::string(1 , str.back());
+                while(v == emp_char)
+                {
+                    str.erase(str.end() - 1 );
+                    v = std::string(1 , str.back());
+                }
             }
         }
     }
@@ -238,7 +241,7 @@ private:
         switch (e)
         {
         case 0:
-            return "\n:\tinvalid user input\n";
+            return "\n:\tinvalid label name\n";
         case 1:
             return "\n:\textra arguments passed\n";
         case 2:
@@ -262,11 +265,11 @@ private:
     {
         if(err.critial)
         {
-            return "Assembly halted due to -> [" + std::to_string(err.line_no) + " " + err.line  + "]" + err_codes(err.msg_type);
+            return "Assembly halted due to -> " + std::to_string(err.line_no) + " [" + err.line  + "]" + err_codes(err.msg_type);
         }
         else
         {
-            return "Warning [" + std::to_string(err.line_no) + " " + err.line  + "]" + err_codes(err.msg_type);
+            return "Warning " + std::to_string(err.line_no) + " [" + err.line  + "]" + err_codes(err.msg_type);
         }
     }
 
@@ -408,6 +411,7 @@ public:
         {
             fp_file.close();
         }
+        std::cout << "\n\n";
     }
 
     ~symbols_table(){}
@@ -470,6 +474,7 @@ public:
     void dump_code()
     {
         int count = 0;
+        std::cout << "Processed internal Code: \n";
         for(auto asm_line: ProgC)
         {
             if(asm_line.label != "")
@@ -506,6 +511,17 @@ void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, instruction_set &ISA
     bool flag = false;
     std::string fp_name = fp_name0.substr(0, fp_name0.size() - 5);
 
+    /*std::ifstream asm_file("./" +fp_name + ".o");
+    if(asm_file.is_open())
+    {
+        
+    }
+    else
+    {
+        std::cout << "Unknown cause of Exit.\n";
+        exit_codes(1);
+    }*/
+
     for(int index = 0; index < Ag_asmbler.get_pc(); index++)
     {
         asmbler::asmbline curr_line = Ag_asmbler.get_code(index);
@@ -513,7 +529,7 @@ void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, instruction_set &ISA
 
         // Needs work
 
-        if(curr_line.ins_name != blank_string && curr_ins.op_code == blank_int)
+        /*if(curr_line.ins_name != blank_string && curr_ins.op_code == blank_int)
         {
             err_tab.add_errmsg(index, Ag_asmbler.get_line(index) , 5, true);
             flag = true;
@@ -530,7 +546,7 @@ void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, instruction_set &ISA
         else if(curr_ins.op_type != blank_string)
         {
 
-        }
+        }*/
 
 
         if(flag)
@@ -552,6 +568,12 @@ void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, instruction_set &ISA
     err_tab.dump_errmsg(fp_name, Ag_asmbler.extra_param[1]);
     if(flag)
     {
+        /*asm_file.close();
+        const char* filename = ("./" +fp_name + ".o");
+
+        if (remove(filename) == 0) {
+            std::cout << "assembled file.o removed\n";
+        }*/
         exit_codes(1);
     }
 
@@ -670,12 +692,15 @@ int main(int argc, char* argv[])
                 }
                 else if(tk_size > 2)
                 {
+                    temp_asm.ins_name = tokens[0];
+                    temp_asm.value = tokens[1];
                     err_tab.add_errmsg(Ag_asmbler.get_pc(), store_line, 1, false);
                 }
 
                 lrstrip(temp_asm.label);
-            
-                if(temp_asm.label != "")
+                char firstc = temp_asm.label[0];
+
+                if(temp_asm.label != "" && !isdigit(firstc) && !ispunct(firstc))
                 {
                     if(symb_tab.add_symbol(temp_asm.label, std::to_string(Ag_asmbler.get_pc()), false))
                     {
@@ -696,6 +721,10 @@ int main(int argc, char* argv[])
                     {
                         err_tab.add_errmsg(Ag_asmbler.get_pc(), store_line, 2, true);
                     }
+                }
+                else if(isdigit(firstc) || ispunct(firstc))
+                {
+                    err_tab.add_errmsg(Ag_asmbler.get_pc(), store_line, 0, true);
                 }
                 
                 Ag_asmbler.add_code(temp_asm);

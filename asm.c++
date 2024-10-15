@@ -3,6 +3,11 @@
 #define blank_string "~"
 #define blank_int -32
 
+#define opc_len 2
+#define adr_len 6
+#define full_len 8
+
+
 std::string str_splice(std::string &str, std::string del = " ", bool rev = false, std::string deflt = blank_string)
 {
     int pos = str.find(del);
@@ -67,18 +72,18 @@ void lrstrip(std::string &str, bool lstrip = true, bool rstrip = true)
     }
 }
 
-void clean_emptystr(std::vector<std::string> &strng)
+void clean_targetstr(std::vector<std::string> &str, std::string deflt = "")
 {
     // Step 1: Use std::remove to move all empty strings to the back
-    auto new_end = std::remove(strng.begin(), strng.end(), "");
+    auto new_end = std::remove(str.begin(), str.end(), deflt);
 
     // Step 2: Use pop_back() to remove the extra empty strings at the back
-    while (strng.end() != new_end) {
-        strng.pop_back();
+    while (str.end() != new_end) {
+        str.pop_back();
     }
 }
 
-std::vector<std::string> tokenizer(std::string &s, std::string del = " ")
+std::vector<std::string> tokenizer(std::string &str, std::string del = " ")
 {
     std::vector<std::string> result;
 
@@ -86,15 +91,15 @@ std::vector<std::string> tokenizer(std::string &s, std::string del = " ")
     int start, end = -1 * del_size;
     do {
         start = end + del_size;
-        end = s.find(del, start);
+        end = str.find(del, start);
 
-        std::string temp_str = s.substr(start, end - start);
+        std::string temp_str = str.substr(start, end - start);
         lrstrip(temp_str);
 
         result.push_back(temp_str);
     } while (end != -1);
 
-    clean_emptystr(result);
+    clean_targetstr(result);
     return result;
 }
 
@@ -105,7 +110,6 @@ void print_tokens(std::vector<std::string> all_tokens)
         std::cout << token << "\n";
     }
 }
-
 
 void exit_codes(int e)
 {
@@ -124,117 +128,80 @@ void exit_codes(int e)
     exit(0);
 }
 
-class instruction_set
+bool isValidString(const std::string& str) {
+    if (str.empty()) {
+        return false;  // Return false if string is empty
+    }
+
+    // Check if the first character is an alphabet
+    if (!std::isalpha(str[0])) {
+        return false;
+    }
+
+    bool foundDigit = false;
+
+    // Loop through the string starting from the second character
+    for (size_t i = 1; i < str.size(); ++i) {
+        if (std::isdigit(str[i])) {
+            foundDigit = true;  // Mark that a digit was found
+        } else if (!std::isalpha(str[i])) {
+            return false;  // If any special character is found, return false
+        }
+
+        // If we find a digit in between alphabets, return false
+        if (foundDigit && std::isalpha(str[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/////// NEEDS works
+std::string hex_formatter(const std::string &str, int dig = -1)
 {
-public:
-    typedef struct instruction_t
+    if(dig != -1)
     {
-        std::string op_type;
-        int op_code;
-
-        instruction_t(int opc = blank_int, std::string oprnd = blank_string)
-        {
-            op_code = opc;
-            op_type = oprnd;
-        }
-    }instruction;
-
-private:
-    std::unordered_map<std::string, instruction> ISa;
-
-    void parse_line(std::string ins_line)
-    {
-        std::vector<std::string> tokens = tokenizer(ins_line);
-
-        instruction temp_ins(-1, tokens[2]);
-        if(tokens[1] != blank_string)
-        {
-            temp_ins.op_code = stoi(tokens[1]);
-            ISa[tokens[0]] = temp_ins;
-        } 
-        else
-        {
-            ISa[tokens[0]] = temp_ins;
-        }
+        return str;
     }
 
-    void dump_isa()
+    return str;
+}
+
+int isproper_num(std::string& str_val)
+{
+    try
     {
-        for(auto isa: ISa)
-        {
-            std::cout << isa.first << "->(" + std::to_string(isa.second.op_code) + "," + isa.second.op_type + ")\n";
-        }
+        int val = stoi(str_val);
+        return val;
     }
-
-public:
-    instruction_set(bool dbg = false)
+    catch(const std::exception& e)
     {
-        std::ifstream file("./data/Mnemonics.txt");
-
-        // String to store each line of the file.
-        bool heading = true;
-        std::string line;
-
-        if (file.is_open()) {
-            // Read each line from the file and store it in the
-            while (getline(file, line)) {
-                if(heading){ heading = false; continue;}
-
-                if(dbg)
-                {
-                    std::cout << line << "\n";
-                }
-                parse_line(line);
-            }
-
-            if(dbg){ dump_isa(); }
-            // Close the file stream once all lines have been
-            // read.
-            file.close();
-        }
-        else {
-            // Print an error message to the standard error
-            // stream if the file cannot be opened.
-            std::cout << "Mnemonics.txt not found in data.\n";
-            exit_codes(1);
-        }
+        return 0;
     }
+}
 
-    instruction get_instrcution(std::string &instrc_name)
-    {
-        if(ISa.find(instrc_name) != ISa.end())
-        {
-            return ISa[instrc_name];
-        }
-        else
-        {
-            return instruction();
-        }
-    }
-
-    ~instruction_set(){}
-};
-
-class err_msgs
+class error_msgs
 {
 private:
-    typedef struct err_msg
+    typedef struct error_msg
     {
         bool critial;
         int line_no;
         int msg_type;
         std::string line;
 
-        err_msg(int line_n = 0, std::string ln = blank_string, int mesg = blank_int, bool crt = false)
+        error_msg(int ln_no = 0, std::string ln = blank_string, int msg_t = blank_int, bool crt = false)
         {
-            line_no = line_n;
+            line_no = ln_no;
             line = ln;
-            msg_type = mesg;
+            msg_type = msg_t;
             critial = crt;
         }
-    }err_msg;
+    }error_msg;
 
-    std::vector<err_msg> prog_errors;
+    std::vector<error_msg> prog_errors;
+    bool asm_failed = false;
 
     std::string err_codes(int e)
     {
@@ -256,12 +223,18 @@ private:
             return "\n:\tlabel not found\n";
         case 7:
             return "\n:\tnot a valid number\n";
+        case 8:
+            return "\n:\tlabel used before declare\n";
+        case 9:
+            return "\n:\tunused label\n";
+        case 10:
+            return "\n:\tinvalid use of SET/data\n";
         default:
             return "\n::unknown cause\n";
         }
     }
 
-    std::string print_err(err_msg &err)
+    std::string print_err(error_msg &err)
     {
         if(err.critial)
         {
@@ -274,22 +247,31 @@ private:
     }
 
 public:
-    void add_errmsg(int pc, std::string line, int mesg, bool crt)
+    void add_errmsg(int pc, std::string line, int msg, bool crt)
     {
-        prog_errors.emplace_back(pc, line, mesg, crt);
+        prog_errors.emplace_back(pc, line, msg, crt);
+        if(!asm_failed)
+        {
+            asm_failed = crt;
+        }
+    }
+
+    bool check_asm_failed()
+    {
+        return asm_failed;
     }
 
     void dump_errmsg(std::string &fp_name, bool lg_file = false)
     {
-        std::ofstream err_f;
+        std::ofstream error_fp;
         if(lg_file)
         {
-            err_f.open("./" + fp_name+ "-err.log");
+            error_fp.open(fp_name+ "-err.log");
         }
 
-        if(err_f.is_open())
+        if(error_fp.is_open())
         {
-            err_f << "Error logs: \n";
+            error_fp << "Error logs: \n";
         }
         else if(lg_file)
         {
@@ -302,7 +284,7 @@ public:
         {
             if(lg_file)
             {
-                err_f << print_err(err) << '\n';
+                error_fp << print_err(err) << '\n';
             }
             std::cout << print_err(err) << '\n';
         }
@@ -310,15 +292,18 @@ public:
         if(prog_errors.size() == 0)
         {
             std::cout << "clean" << '\n';
+            if(lg_file)
+            {
+                error_fp << "Compiled with 0 errors." << '\n';
+            }
         }
 
         if(lg_file)
         {
-            err_f.close();
+            error_fp.close();
         }
     }
 
-    ~err_msgs(){}
 };
 
 class symbols_table
@@ -338,10 +323,11 @@ private:
         }
     }label_data;
 
-    std::unordered_map<std::string, label_data> symbol_t;
-
 public:
-    bool add_symbol(std::string label_name, std::string label_val, bool ltrl)
+    std::unordered_map<std::string, label_data> symbol_t;
+    std::unordered_map<std::string, std::string> all_label_refs;
+
+    bool add_symbol(std::string &label_name, std::string label_val, bool ltrl = false)
     {
         if(symbol_t.find(label_name) == symbol_t.end())
         {
@@ -352,10 +338,24 @@ public:
         return false;
     }
 
-    void set_label(std::string label_name, std::string label_val, bool ltrl)
+    bool check_undeclared(std::string label_name)
     {
-        symbol_t[label_name].label_data = label_val;
-        symbol_t[label_name].literal_type = ltrl;
+        if(symbol_t.find(label_name) == symbol_t.end())
+        {
+            return true;
+        }
+        return false;
+    }
+
+    bool check_forw_refs(std::string &label_name)
+    {
+        if(all_label_refs.find(label_name) == all_label_refs.end())
+        {
+            return false;
+        }
+
+        symbol_t[label_name].used_lbl = true;
+        return true;
     }
 
     std::string prty_print(bool val)
@@ -367,23 +367,12 @@ public:
         return " stores address";
     }
 
-    label_data get_label(std::string label_name)
-    {
-        if(symbol_t.find(label_name) == symbol_t.end())
-        {
-            symbol_t[label_name].used_lbl = true;
-            return symbol_t[label_name];
-        }
-
-        return label_data(blank_string);
-    }
-
-    void dump_table(std::string &fp_name, bool lg_file = false)
+    /*void dump_table(std::string &fp_name, bool lg_file = false)
     {
         std::ofstream fp_file;
         if(lg_file)
         {
-            fp_file.open("./" + fp_name);
+            fp_file.open(fp_name);
         }
 
         std::cout << "Symbol table: \n";
@@ -404,7 +393,6 @@ public:
             {
                 fp_file << symbl.first + ": (" << symbl.second.label_data << ")" + prty_print(symbl.second.literal_type) << "\n";
             }
-
         }
 
         if(lg_file)
@@ -412,21 +400,31 @@ public:
             fp_file.close();
         }
         std::cout << "\n\n";
-    }
-
-    ~symbols_table(){}
+    }*/
 };
 
 class asmbler
 {
 public:
+    typedef struct machine_code
+    {
+        std::string prog_line;
+        std::string ins_line;
+
+        machine_code(std::string prg_ln, std::string ins_ln)
+        {
+            prog_line = prg_ln;
+            ins_line = ins_ln;
+        }
+    }machline;
+
     typedef struct asm_code
     {
         std::string label;
         std::string ins_name;
         std::string value;
 
-        asm_code(std::string ins_nm, std::string val, std::string lbl = "")
+        asm_code(std::string ins_nm = blank_string, std::string val = blank_string, std::string lbl = "")
         {
             label = lbl;
             ins_name = ins_nm;
@@ -435,20 +433,111 @@ public:
     }asmbline;
 
 private:
-    std::vector<asmbline> ProgC;
+    typedef struct instruction_t
+    {
+        int op_code;
+        bool needs_val;
 
-    std::string prty_print(std::string val)
+        instruction_t(int opc = blank_int, bool nds_val = false)
+        {
+            op_code = opc;
+            needs_val = nds_val;
+        }
+    }instruction;
+
+    std::vector<asmbline> ProgC;
+    std::unordered_map<std::string, instruction> IS;
+
+    std::string prty_print(std::string &val)
     {
         return (val == blank_string)? "" : val;
     }
 
+    void parse_line(std::string ins_line)
+    {
+        std::vector<std::string> tokens = tokenizer(ins_line);
+
+        instruction temp_ins;
+        if(tokens[1] != blank_string)
+        {
+            temp_ins.op_code = stoi(tokens[1]);
+        }
+        else
+        {
+            temp_ins.op_code = 0;
+        }
+
+        if(tokens[2] != blank_string)
+        {
+            temp_ins.needs_val = true;
+        } 
+
+        IS[tokens[0]] = temp_ins;
+    }
+
+    void dump_instr_set()
+    {
+        for(auto is: IS)
+        {
+            int num_inputs = is.second.needs_val + 1;
+            std::cout << is.first << "-> (" + std::to_string(is.second.op_code) + "," + std::to_string(num_inputs) + ")\n";
+        }
+    }
+
 public:
+    asmbler(bool dbg = false)
+    {
+        std::ifstream file("./data/Mnemonics.txt");
+
+        // String to store each line of the file.
+        bool heading = true;
+        std::string line;
+
+        if (file.is_open()) {
+            // Read each line from the file and store it in the
+            while (getline(file, line)) {
+                if(heading){ heading = false; continue;}
+
+                if(dbg)
+                {
+                    std::cout << line << "\n";
+                }
+                parse_line(line);
+            }
+
+            if(dbg){ dump_instr_set(); }
+            // Close the file stream once all lines have been
+            // read.
+            file.close();
+        }
+        else {
+            // Print an error message to the standard error
+            // stream if the file cannot be opened.
+            std::cout << "Mnemonics.txt not found in data.\n";
+            exit_codes(1);
+        }
+    }
+
     // params for: -t -l -d -s
     bool extra_param[4] = {false, false, false, false};
 
     int get_pc()
     {
         return ProgC.size();
+    }
+
+    bool invalid_ins(std::string &ins_nm)
+    {
+        if(IS.find(ins_nm) == IS.end())
+        {
+            return true;
+        }
+        return false;
+    }
+
+    bool ins_needs_val(std::string &ins_nm)
+    {
+        return IS[ins_nm].needs_val;
     }
 
     void add_code(asmbline &asmdata)
@@ -490,8 +579,8 @@ public:
         }
     }
 
-    ~asmbler(){}
 };
+
 
 void print_usage()
 {
@@ -506,114 +595,23 @@ void print_usage()
     std::cout << "\n----    ----    ----\nfor standalone exe: open the asm.exe\n----    ----    ----\n\n";
 }
 
-void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, instruction_set &ISA, err_msgs &err_tab, std::string &fp_name0)
+void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, error_msgs &err_tab, std::string &fp_name0)
 {
-    bool flag = false;
-    std::string fp_name = fp_name0.substr(0, fp_name0.size() - 5);
-
-    /*std::ifstream asm_file("./" +fp_name + ".o");
-    if(asm_file.is_open())
-    {
-        
-    }
-    else
-    {
-        std::cout << "Unknown cause of Exit.\n";
-        exit_codes(1);
-    }*/
-
-    for(int index = 0; index < Ag_asmbler.get_pc(); index++)
-    {
-        asmbler::asmbline curr_line = Ag_asmbler.get_code(index);
-        instruction_set::instruction curr_ins = ISA.get_instrcution(curr_line.ins_name);
-
-        // Needs work
-
-        /*if(curr_line.ins_name != blank_string && curr_ins.op_code == blank_int)
-        {
-            err_tab.add_errmsg(index, Ag_asmbler.get_line(index) , 5, true);
-            flag = true;
-        }
-        else if(curr_ins.op_type == blank_string && curr_line.value != blank_string)
-        {
-            err_tab.add_errmsg(index, Ag_asmbler.get_line(index) , 1, false);
-        }
-        else if(curr_ins.op_type != blank_string && curr_line.value == blank_string)
-        {
-            err_tab.add_errmsg(index, Ag_asmbler.get_line(index) , 3, true);
-            flag = true;
-        }
-        else if(curr_ins.op_type != blank_string)
-        {
-
-        }*/
+    std::string file_fp = "./" + fp_name0.substr(0, fp_name0.size() - 5);
 
 
-        if(flag)
-        {
-            break;
-        }
-    }
-
-    if(Ag_asmbler.extra_param[3])
-    {
-        symb_tab.dump_table(fp_name);
-    }
-
-    if(Ag_asmbler.extra_param[0])
-    {
-        Ag_asmbler.dump_code();
-    }
-
-    err_tab.dump_errmsg(fp_name, Ag_asmbler.extra_param[1]);
-    if(flag)
-    {
-        /*asm_file.close();
-        const char* filename = ("./" +fp_name + ".o");
-
-        if (remove(filename) == 0) {
-            std::cout << "assembled file.o removed\n";
-        }*/
-        exit_codes(1);
-    }
-
-    if(Ag_asmbler.extra_param[2])
-    {
-        fp_name = fp_name0.substr(0, fp_name0.size() - 5) + "-data.txt";  
-        symb_tab.dump_table(fp_name, Ag_asmbler.extra_param[2]);
-
-        std::ofstream file_data;
-        file_data.open("./" + fp_name, std::ios::app);
-
-        if(file_data.is_open())
-        {
-            file_data << "\nAssembly code: " << '\n';
-
-            int pc_num = Ag_asmbler.get_pc();
-            for(int id = 0; id < pc_num; id++)
-            {
-                file_data << Ag_asmbler.get_line(id) << '\n';
-            }
-
-            file_data.close();
-        }
-        else
-        {
-            std::cout << "Unknown cause of Exit.\n";
-            exit_codes(1);
-        }
-    }
+    Ag_asmbler.dump_code();
+    err_tab.dump_errmsg(file_fp);
 }
 
 int main(int argc, char* argv[])
 {
-    instruction_set ISA;
+    asmbler Ag_asmbler;
+    error_msgs error_table;
+    symbols_table symb_table;
+
     std::cout << "====== ========== ======\n";
     std::cout << "Welcome to assembler asm\n";
-
-    asmbler Ag_asmbler;
-    symbols_table symb_tab;
-    err_msgs err_tab;
 
     std::string fp_name;
 
@@ -662,7 +660,7 @@ int main(int argc, char* argv[])
     {
         std::cout << "File located: processing file.\n\n";
 
-        std::string asm_line, store_line;
+        std::string asm_line, store_line, labl;
         std::vector<std::string> tokens;
 
         // Read each line from the file and store it
@@ -673,66 +671,134 @@ int main(int argc, char* argv[])
 
             if(store_line != "") 
             {
+                labl = str_splice(store_line, ":", false, "");
                 asm_line = str_splice(store_line, ":", true);
-                lrstrip(asm_line);
 
-                tokens = tokenizer(asm_line, " ");
+                lrstrip(labl);
+                tokens = tokenizer(asm_line);
                 int tk_size = tokens.size();
 
-                asmbler::asmbline temp_asm(blank_string, blank_string, str_splice(store_line, ":", false, ""));
+                asmbler::asmbline temp_asm;
 
-                if(tk_size == 2)
+                // All label processings
+                if(labl != "")
                 {
-                    temp_asm.ins_name = tokens[0];
-                    temp_asm.value = tokens[1];
-                }
-                else if(tk_size == 1)
-                {
-                    temp_asm.ins_name = tokens[0];
-                }
-                else if(tk_size > 2)
-                {
-                    temp_asm.ins_name = tokens[0];
-                    temp_asm.value = tokens[1];
-                    err_tab.add_errmsg(Ag_asmbler.get_pc(), store_line, 1, false);
-                }
-
-                lrstrip(temp_asm.label);
-                char firstc = temp_asm.label[0];
-
-                if(temp_asm.label != "" && !isdigit(firstc) && !ispunct(firstc))
-                {
-                    if(symb_tab.add_symbol(temp_asm.label, std::to_string(Ag_asmbler.get_pc()), false))
+                    temp_asm.label = labl;
+                    if(isValidString(labl))
                     {
-                        if(temp_asm.ins_name == "SET")
+                        if(symb_table.add_symbol(labl, std::to_string(Ag_asmbler.get_pc())))
                         {
+                            if(symb_table.check_forw_refs(labl))
+                            {
+                                error_table.add_errmsg(Ag_asmbler.get_pc(), symb_table.all_label_refs[labl], 8, false);
+                            }
+                            else
+                            {
+                                symb_table.all_label_refs[labl] = store_line;
+                            }
+
                             if(tk_size == 2)
                             {
-                                symb_tab.set_label(temp_asm.label, tokens[1], true);
+                                if(labl == tokens[1])
+                                {
+                                    error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 4, true);                                   
+                                }
+                                else if(tokens[0] == "SET")
+                                {
+                                    symb_table.symbol_t[labl].literal_type= true;
+                                }
                             }
                         }
-                        // Needs more information
-                        else if(temp_asm.ins_name == "data")
+                        else
                         {
-
+                            error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 2, true);
                         }
                     }
                     else
                     {
-                        err_tab.add_errmsg(Ag_asmbler.get_pc(), store_line, 2, true);
+                        error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 0, true);
                     }
                 }
-                else if(isdigit(firstc) || ispunct(firstc))
+
+                if(tk_size >= 1)
                 {
-                    err_tab.add_errmsg(Ag_asmbler.get_pc(), store_line, 0, true);
+                    temp_asm.ins_name = tokens[0];
+                    if(tk_size >= 2)
+                    {
+                        temp_asm.value = tokens[1];
+                    }
+
+                    if(Ag_asmbler.invalid_ins(tokens[0]))
+                    {
+                        error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 5, true);
+                    }
+                    else if(Ag_asmbler.ins_needs_val(tokens[0]) && tk_size == 1)
+                    {
+                        error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 3, true);
+                    }
+                    else if(Ag_asmbler.ins_needs_val(tokens[0]) && tk_size >= 2)
+                    {
+                        // Check for set / data
+                        if((tokens[0] == "SET" || tokens[0] == "data") && isproper_num(tokens[1]))
+                        {
+                            symb_table.symbol_t[labl] = tokens[1];
+                        }
+                        else if (!(tokens[0] == "SET" || tokens[0] == "data"))
+                        {
+                            if(!isproper_num(tokens[1]) && !symb_table.check_forw_refs(tokens[1]))
+                            {
+                                if(isValidString(tokens[1]))
+                                {
+                                    symb_table.all_label_refs[tokens[1]] = store_line;
+                                }
+                                else
+                                {
+                                    error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 7, true);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 10, true);
+                        }
+
+                        if(tk_size > 2)
+                        {
+                            error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 1, false);
+                        }
+                    }
+                    else if(!Ag_asmbler.ins_needs_val(tokens[0]) && tk_size >= 2)
+                    {
+                        error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 1, false);
+                    }
                 }
-                
+
                 Ag_asmbler.add_code(temp_asm);
             }
             else{ continue; }
         }
 
-        // Close the file
+        // All unused/ not found labels
+        for(auto sym_data: symb_table.all_label_refs)
+        {
+            if(symb_table.check_undeclared(sym_data.first))
+            {
+                error_table.add_errmsg(-1, sym_data.second, 6, true);
+            }
+            else if(!symb_table.symbol_t[sym_data.first].used_lbl)
+            {
+                try
+                {
+                    error_table.add_errmsg(stoi(symb_table.symbol_t[sym_data.first].label_data), sym_data.second, 9, false);
+                }
+                catch(const std::exception& e)
+                {
+                    error_table.add_errmsg(-1, sym_data.second, 9, false);
+                }
+            }
+        }
+
+        symb_table.all_label_refs.clear();
         asm_file.close();
     }
     else
@@ -741,7 +807,7 @@ int main(int argc, char* argv[])
         exit_codes(1);
     }
 
-    ASSEMBLE(Ag_asmbler, symb_tab, ISA, err_tab, fp_name);
+    ASSEMBLE(Ag_asmbler, symb_table, error_table, fp_name);
 
     exit_codes(0);
     return 0;

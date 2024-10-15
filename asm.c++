@@ -173,6 +173,10 @@ int isproper_num(std::string& str_val)
     try
     {
         int val = stoi(str_val);
+        if(val == 0)
+        {
+            return 1;
+        }
         return val;
     }
     catch(const std::exception& e)
@@ -690,7 +694,9 @@ int main(int argc, char* argv[])
                         {
                             if(symb_table.check_forw_refs(labl))
                             {
-                                error_table.add_errmsg(Ag_asmbler.get_pc(), symb_table.all_label_refs[labl], 8, false);
+                                symb_table.symbol_t[labl].used_lbl = true;
+                                // No forward declare warnings
+                                //error_table.add_errmsg(Ag_asmbler.get_pc(), symb_table.all_label_refs[labl], 8, false);
                             }
                             else
                             {
@@ -701,7 +707,7 @@ int main(int argc, char* argv[])
                             {
                                 if(labl == tokens[1])
                                 {
-                                    error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 4, true);                                   
+                                    error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 4, false);                                   
                                 }
                                 else if(tokens[0] == "SET")
                                 {
@@ -739,21 +745,31 @@ int main(int argc, char* argv[])
                     else if(Ag_asmbler.ins_needs_val(tokens[0]) && tk_size >= 2)
                     {
                         // Check for set / data
-                        if((tokens[0] == "SET" || tokens[0] == "data") && isproper_num(tokens[1]))
+                        if((tokens[0] == "SET" || tokens[0] == "data") && (isproper_num(tokens[1])))
                         {
                             symb_table.symbol_t[labl] = tokens[1];
                         }
                         else if (!(tokens[0] == "SET" || tokens[0] == "data"))
                         {
-                            if(!isproper_num(tokens[1]) && !symb_table.check_forw_refs(tokens[1]))
+                            if(!isproper_num(tokens[1]))
                             {
-                                if(isValidString(tokens[1]))
+                                if(symb_table.check_undeclared(tokens[1]))
                                 {
-                                    symb_table.all_label_refs[tokens[1]] = store_line;
+                                    if(!symb_table.check_forw_refs(tokens[1]))
+                                    {
+                                        if(isValidString(tokens[1]))
+                                        {
+                                            symb_table.all_label_refs[tokens[1]] = store_line;
+                                        }
+                                        else
+                                        {
+                                            error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 7, true);
+                                        }
+                                    }
                                 }
                                 else
                                 {
-                                    error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 7, true);
+                                    symb_table.symbol_t[tokens[1]].used_lbl = true;                                    
                                 }
                             }
                         }
@@ -785,17 +801,11 @@ int main(int argc, char* argv[])
             {
                 error_table.add_errmsg(-1, sym_data.second, 6, true);
             }
-            else if(!symb_table.symbol_t[sym_data.first].used_lbl)
+            // No unused label warning
+            /*else if(!symb_table.symbol_t[sym_data.first].used_lbl)
             {
-                try
-                {
-                    error_table.add_errmsg(stoi(symb_table.symbol_t[sym_data.first].label_data), sym_data.second, 9, false);
-                }
-                catch(const std::exception& e)
-                {
-                    error_table.add_errmsg(-1, sym_data.second, 9, false);
-                }
-            }
+                error_table.add_errmsg(isproper_num(symb_table.symbol_t[sym_data.first].label_data), sym_data.second, 9, false);
+            }*/
         }
 
         symb_table.all_label_refs.clear();

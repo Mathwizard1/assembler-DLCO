@@ -453,17 +453,17 @@ private:
             literal_type = ltrl;
             used_lbl = usd_lbl;
         }
-    }label_data;
+    }label_var;
 
 public:
-    std::unordered_map<std::string, label_data> symbol_t;
+    std::unordered_map<std::string, label_var> symbol_t;
     std::unordered_map<std::string, std::string> all_label_refs;
 
     bool add_symbol(std::string &label_name, std::string label_val, bool ltrl = false)
     {
         if(symbol_t.find(label_name) == symbol_t.end())
         {
-            symbol_t[label_name] = label_data(label_val, ltrl);
+            symbol_t[label_name] = label_var(label_val, ltrl);
             return true;
         }
 
@@ -740,7 +740,7 @@ void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, error_msgs &err_tab,
     std::string file_obj = file_fp + ".o";
     std::string prog_ln, val_ln, op_ln;
 
-    std::ofstream fp_obj, fp_dmp;
+    //std::ofstream fp_obj, fp_dmp;
 
     int net_code_ln = Ag_asmbler.get_pc();
     if(!err_flag)
@@ -793,7 +793,7 @@ void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, error_msgs &err_tab,
 
 int main(int argc, char* argv[])
 {
-    asmbler Ag_asmbler(true);
+    asmbler Ag_asmbler;
     error_msgs error_table;
     symbols_table symb_table;
 
@@ -936,7 +936,7 @@ int main(int argc, char* argv[])
                         {
                             if(tokens[0] == "SET" && num_code > 0)
                             {
-                                symb_table.symbol_t[labl] = tokens[1];
+                                symb_table.symbol_t[labl].label_data = tokens[1];
                                 symb_table.symbol_t[labl].literal_type = true;
                             }
                             else

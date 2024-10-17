@@ -4,7 +4,7 @@
 #define blank_int -32
 
 #define opc_len 2
-#define adr_len 6
+#define oprnd_len 6
 #define full_len 8
 
 
@@ -157,33 +157,153 @@ bool isValidString(const std::string& str) {
     return true;
 }
 
-/////// NEEDS works
-std::string hex_formatter(const std::string &str, int dig = -1)
+void force_upper(std::string &str, int l)
 {
-    if(dig != -1)
-    {
-        return str;
+    for (int i = 0; i < l; i++) { 
+        str[i] = toupper(str[i]); 
     }
-
-    return str;
 }
 
-int isproper_num(std::string& str_val)
+// To check for decimal, binary, octal, hexadecimal
+int number_type(const std::string  &str_val)
 {
-    try
+    int str_len = str_val.size();
+
+    std::string str_copy = (str_val[0] == '+' || str_val[0] == '-')? str_val.substr(1, str_len - 1) : str_val;
+    str_len = str_copy.size();
+    force_upper(str_copy, str_len);
+
+    if(str_len > 2 && str_val[0] == '0' && (str_copy[1] == 'X'))
     {
-        int val = stoi(str_val);
-        if(val == 0)
+        for(int i = 2; i < str_len; i++)
         {
-            return 1;
+            if(!((str_copy[i] >= 'A' && str_copy[i] <= 'F') || isdigit(str_copy[i])))
+            {
+                return -16;
+            }
         }
-        return val;
+
+        return 16;
     }
-    catch(const std::exception& e)
+    else if(str_len > 2 && str_val[0] == '0' && (str_copy[1] == 'B'))
     {
-        return 0;
+        for(int i = 2; i < str_len; i++)
+        {
+            if(!(str_copy[i] >= '0' && str_copy[i] <= '1'))
+            {
+                return -2;
+            }
+        }
+
+        return 2;
     }
+    else if(str_val[0] == '0')
+    {
+        bool oct = true;
+        bool parse = false;
+
+        if(str_len > 2 && str_copy[1] == 'O')
+        {
+            parse = true;
+        }
+
+        for(int i = 1; i < str_len; i++)
+        {
+            if(parse) { continue; }
+            if(!isdigit(str_copy[i]))
+            {
+                return blank_int;
+            }
+
+            if(str_copy[i] == '8' || str_copy[i] == '9')
+            {
+                oct = false;
+            }
+        }
+
+        if(oct)
+        {
+            return 8;
+        }
+        else
+        {
+            if(parse){ return -8; }
+        }
+
+        return 10;
+    }
+    else
+    {
+        for(auto s: str_copy)
+        {
+            if(!isdigit(s))
+            {
+                return blank_int;
+            }
+        }
+    }
+
+    return 10;
 }
+
+
+// NEEDs work here and then done
+// Make all strings 0x,0o,0b, to nums only
+/*std::string removeLettersInFirst4(const std::string& input) {
+    std::string result;
+    int inp_size = (input.size() > 4)? 4 : input.size();
+
+    // Process the first 4 characters
+    for (int i = 0; i < 4 && i < inp_size; ++i) {
+        if (!isalpha(input[i])) {
+            result += input[i];  // Append non-letter characters to result
+        }
+    }
+    // Append the remaining characters unchanged
+    if (input.size() > 4) {
+        result += input.substr(4);
+    }
+    return result;
+}*/
+
+// Main function to convert all code to hexadecimal strings
+std::string hex_formatter(std::string str, int dig_len, int base_val = 10)
+{
+    std::string num_str = str;
+
+    int val = std::stoi(num_str, (std::size_t *) 0, base_val);
+    
+    std::cout << val << "=" << str + '\n';
+
+    // Calculate the bit-width based on hex digit width
+    int bit_width = 4 * dig_len;
+
+    // Calculate the maximum and minimum values for the given width
+    int max_positive = (1 << (bit_width - 1)) - 1;  // Half of the unsigned range
+    int min_negative = -(1 << (bit_width - 1));     // Negative range
+
+    // Check if the input is within the valid range for the given width
+    if (val < min_negative || val > max_positive) {
+        throw std::out_of_range("Input out of range for the specified width.");
+    }
+
+
+    // Convert to the appropriate hexadecimal
+    unsigned int hex_value;
+    if (val >= 0) {
+        // Positive numbers stay the same
+        hex_value = static_cast<unsigned int>(val);
+    } else {
+        // For negative numbers, use two's complement
+        hex_value = (1 << bit_width) + val;
+    }
+
+    // Convert the result to a hexadecimal string with the desired width
+    std::stringstream ss;
+    ss << std::uppercase << std::setfill('0') << std::setw(dig_len) << std::hex << hex_value;
+    return ss.str();
+}
+
 
 class error_msgs
 {
@@ -211,6 +331,14 @@ private:
     {
         switch (e)
         {
+        case (-32):
+            return "\n:\tnot a valid number\n";
+        case (-16):
+            return "\n:\tinvalid hexadecimal\n";
+        case (-8):
+            return "\n:\tinvalid octal\n";
+        case (-2):
+            return "\n:\tinvalid binary\n";
         case 0:
             return "\n:\tinvalid label name\n";
         case 1:
@@ -226,7 +354,7 @@ private:
         case 6:
             return "\n:\tlabel not found\n";
         case 7:
-            return "\n:\tnot a valid number\n";
+            return "\n:\tvalue will get truncated\n";
         case 8:
             return "\n:\tlabel used before declare\n";
         case 9:
@@ -270,7 +398,7 @@ public:
         std::ofstream error_fp;
         if(lg_file)
         {
-            error_fp.open(fp_name+ "-err.log");
+            error_fp.open("./" + fp_name + "-err.log");
         }
 
         if(error_fp.is_open())
@@ -351,14 +479,17 @@ public:
         return false;
     }
 
-    bool check_forw_refs(std::string &label_name)
+    bool check_forw_refs(std::string label_name)
     {
         if(all_label_refs.find(label_name) == all_label_refs.end())
         {
             return false;
         }
+        else if(!check_undeclared(label_name))
+        {
+            symbol_t[label_name].used_lbl = true;
+        }
 
-        symbol_t[label_name].used_lbl = true;
         return true;
     }
 
@@ -371,7 +502,7 @@ public:
         return " stores address";
     }
 
-    /*void dump_table(std::string &fp_name, bool lg_file = false)
+    void dump_table(std::string &fp_name, bool lg_file = false)
     {
         std::ofstream fp_file;
         if(lg_file)
@@ -379,7 +510,7 @@ public:
             fp_file.open(fp_name);
         }
 
-        std::cout << "Symbol table: \n";
+        std::cout << "\nSymbol table: \n";
         if(fp_file.is_open())
         {
             fp_file << "Symbol table: \n";
@@ -404,35 +535,25 @@ public:
             fp_file.close();
         }
         std::cout << "\n\n";
-    }*/
+    }
 };
 
 class asmbler
 {
 public:
-    typedef struct machine_code
-    {
-        std::string prog_line;
-        std::string ins_line;
-
-        machine_code(std::string prg_ln, std::string ins_ln)
-        {
-            prog_line = prg_ln;
-            ins_line = ins_ln;
-        }
-    }machline;
-
     typedef struct asm_code
     {
         std::string label;
         std::string ins_name;
         std::string value;
+        int base_val;
 
-        asm_code(std::string ins_nm = blank_string, std::string val = blank_string, std::string lbl = "")
+        asm_code(std::string ins_nm = blank_string, std::string val = blank_string, std::string lbl = "", int bs_val = -32)
         {
             label = lbl;
             ins_name = ins_nm;
             value = val;
+            base_val = bs_val;
         }
     }asmbline;
 
@@ -525,6 +646,12 @@ public:
     // params for: -t -l -d -s
     bool extra_param[4] = {false, false, false, false};
 
+    void clear_all()
+    {
+        ProgC.clear();
+        IS.clear();
+    }
+
     int get_pc()
     {
         return ProgC.size();
@@ -549,12 +676,17 @@ public:
         ProgC.push_back(asmdata);
     }
 
+    std::string get_opcode(std::string &ins_nm)
+    {
+        return std::to_string(IS[ins_nm].op_code);
+    }
+
     asmbline get_code(int i)
     {
         return ProgC[i];
     }
 
-    std::string get_line(int i)
+    /*std::string get_line(int i)
     {
         if(ProgC[i].label != "")
         {
@@ -562,7 +694,7 @@ public:
         }
         
         return prty_print(ProgC[i].ins_name) + " " + prty_print(ProgC[i].value);
-    }
+    }*/
 
     void dump_code()
     {
@@ -601,16 +733,67 @@ void print_usage()
 
 void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, error_msgs &err_tab, std::string &fp_name0)
 {
-    std::string file_fp = "./" + fp_name0.substr(0, fp_name0.size() - 5);
+    std::string file_fp = fp_name0.substr(0, fp_name0.size() - 4);
+    bool err_flag = err_tab.check_asm_failed();
 
+    std::string file_dump = file_fp + ".lst";
+    std::string file_obj = file_fp + ".o";
+    std::string prog_ln, val_ln, op_ln;
 
-    Ag_asmbler.dump_code();
-    err_tab.dump_errmsg(file_fp);
+    std::ofstream fp_obj, fp_dmp;
+
+    int net_code_ln = Ag_asmbler.get_pc();
+    if(!err_flag)
+    {
+        for(int index = 0; index < net_code_ln; index++)
+        {
+            asmbler::asmbline temp_asm = Ag_asmbler.get_code(index);
+            std::cout << temp_asm.ins_name + " " + temp_asm.value << " in " << temp_asm.base_val <<"\n\n";
+
+            prog_ln = hex_formatter(std::to_string(index), full_len);
+            if(temp_asm.ins_name != blank_string) 
+            { 
+                op_ln = Ag_asmbler.get_opcode(temp_asm.ins_name);
+                val_ln = "000000" + hex_formatter(op_ln , opc_len);
+            }
+            else
+            {
+                val_ln = "000000FF";
+            }
+        
+            std::cout << prog_ln + " " + val_ln << '\n';
+        }
+    }
+
+    // -t to display all internal code
+    if(Ag_asmbler.extra_param[0])
+    {
+        Ag_asmbler.dump_code();
+    }
+
+    // -l to save errors in file
+    err_tab.dump_errmsg(file_fp, (err_flag || Ag_asmbler.extra_param[1]));
+    if(err_flag){ exit_codes(1); }
+
+    std::cout << file_fp << "\n";
+
+   // -s to display symbols table
+    file_dump = file_fp +"-symbols.txt";
+    if(Ag_asmbler.extra_param[0] || Ag_asmbler.extra_param[3])
+    {
+        std::cout << file_dump << "\n";
+        symb_tab.dump_table(file_fp, Ag_asmbler.extra_param[3]);
+    }
+    std::cout << file_dump << "\n";
+
+    Ag_asmbler.clear_all();
+    //symb_tab.clear();
+    //err_tab.clear();
 }
 
 int main(int argc, char* argv[])
 {
-    asmbler Ag_asmbler;
+    asmbler Ag_asmbler(true);
     error_msgs error_table;
     symbols_table symb_table;
 
@@ -658,6 +841,7 @@ int main(int argc, char* argv[])
     }
 
     std::cout << "\nSearching: " + fp_name << "\n";
+    std::string fp_copy = fp_name.substr(0, fp_name.size() - 4);
 
     std::ifstream asm_file("./" + fp_name);
     if(asm_file.is_open())
@@ -744,14 +928,28 @@ int main(int argc, char* argv[])
                     }
                     else if(Ag_asmbler.ins_needs_val(tokens[0]) && tk_size >= 2)
                     {
+                        int num_code = number_type(tokens[1]);
+                        temp_asm.base_val = num_code;
+
                         // Check for set / data
-                        if((tokens[0] == "SET" || tokens[0] == "data") && (isproper_num(tokens[1])))
+                        if((tokens[0] == "SET" || tokens[0] == "data") && num_code != blank_int)
                         {
-                            symb_table.symbol_t[labl] = tokens[1];
+                            if(tokens[0] == "SET" && num_code > 0)
+                            {
+                                symb_table.symbol_t[labl] = tokens[1];
+                                symb_table.symbol_t[labl].literal_type = true;
+                            }
+                            else
+                            {
+                                if(num_code < 0)
+                                {
+                                    error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, num_code, true);
+                                }
+                            }
                         }
                         else if (!(tokens[0] == "SET" || tokens[0] == "data"))
                         {
-                            if(!isproper_num(tokens[1]))
+                            if(num_code < 0)
                             {
                                 if(symb_table.check_undeclared(tokens[1]))
                                 {
@@ -763,7 +961,7 @@ int main(int argc, char* argv[])
                                         }
                                         else
                                         {
-                                            error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 7, true);
+                                            error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, num_code, true);
                                         }
                                     }
                                 }
@@ -804,7 +1002,7 @@ int main(int argc, char* argv[])
             // No unused label warning
             /*else if(!symb_table.symbol_t[sym_data.first].used_lbl)
             {
-                error_table.add_errmsg(isproper_num(symb_table.symbol_t[sym_data.first].label_data), sym_data.second, 9, false);
+                error_table.add_errmsg(hex(symb_table.symbol_t[sym_data.first].label_data), sym_data.second, 9, false);
             }*/
         }
 
@@ -816,7 +1014,7 @@ int main(int argc, char* argv[])
         std::cout << "No such file found in dir.\n";
         exit_codes(1);
     }
-
+    
     ASSEMBLE(Ag_asmbler, symb_table, error_table, fp_name);
 
     exit_codes(0);

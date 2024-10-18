@@ -246,10 +246,8 @@ int number_type(const std::string  &str_val)
     return 10;
 }
 
-
-// NEEDs work here and then done
 // Make all strings 0x,0o,0b, to nums only
-/*std::string removeLettersInFirst4(const std::string& input) {
+std::string removeLettersInFirst4(const std::string& input) {
     std::string result;
     int inp_size = (input.size() > 4)? 4 : input.size();
 
@@ -264,16 +262,13 @@ int number_type(const std::string  &str_val)
         result += input.substr(4);
     }
     return result;
-}*/
+}
 
 // Main function to convert all code to hexadecimal strings
 std::string hex_formatter(std::string str, int dig_len, int base_val = 10)
 {
-    std::string num_str = str;
-
+    std::string num_str = removeLettersInFirst4(str);
     int val = std::stoi(num_str, (std::size_t *) 0, base_val);
-    
-    std::cout << val << "=" << str + '\n';
 
     // Calculate the bit-width based on hex digit width
     int bit_width = 4 * dig_len;
@@ -286,7 +281,6 @@ std::string hex_formatter(std::string str, int dig_len, int base_val = 10)
     if (val < min_negative || val > max_positive) {
         throw std::out_of_range("Input out of range for the specified width.");
     }
-
 
     // Convert to the appropriate hexadecimal
     unsigned int hex_value;
@@ -686,7 +680,7 @@ public:
         return ProgC[i];
     }
 
-    /*std::string get_line(int i)
+    std::string get_line(int i)
     {
         if(ProgC[i].label != "")
         {
@@ -694,7 +688,7 @@ public:
         }
         
         return prty_print(ProgC[i].ins_name) + " " + prty_print(ProgC[i].value);
-    }*/
+    }
 
     void dump_code()
     {
@@ -748,20 +742,44 @@ void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, error_msgs &err_tab,
         for(int index = 0; index < net_code_ln; index++)
         {
             asmbler::asmbline temp_asm = Ag_asmbler.get_code(index);
-            std::cout << temp_asm.ins_name + " " + temp_asm.value << " in " << temp_asm.base_val <<"\n\n";
 
             prog_ln = hex_formatter(std::to_string(index), full_len);
             if(temp_asm.ins_name != blank_string) 
             { 
+                val_ln = "000000";
                 op_ln = Ag_asmbler.get_opcode(temp_asm.ins_name);
-                val_ln = "000000" + hex_formatter(op_ln , opc_len);
+                if(Ag_asmbler.ins_needs_val(temp_asm.ins_name))
+                {
+                    if(temp_asm.base_val == blank_int)
+                    {
+                        if(symb_tab.check_undeclared(temp_asm.value))
+                        {
+                            std::cout << "faulty assembler\n";
+                            exit_codes(0);
+                        }
+                        else
+                        {
+                            temp_asm.value = symb_tab.symbol_t[temp_asm.value].label_data;
+                            temp_asm.base_val = number_type(temp_asm.value);
+
+                            if(temp_asm.base_val < 0)
+                            {
+                                std::cout << "faulty assembler\n";
+                                exit_codes(1);
+                            }
+                        }
+                    }
+
+                    val_ln = hex_formatter(temp_asm.value, oprnd_len, temp_asm.base_val);
+                }
+                val_ln = val_ln + hex_formatter(op_ln , opc_len);
             }
             else
             {
                 val_ln = "000000FF";
             }
         
-            std::cout << prog_ln + " " + val_ln << '\n';
+            std::cout << prog_ln + " " + val_ln + " " << Ag_asmbler.get_line(index) << '\n';
         }
     }
 
@@ -874,7 +892,10 @@ int main(int argc, char* argv[])
                     temp_asm.label = labl;
                     if(isValidString(labl))
                     {
-                        if(symb_table.add_symbol(labl, std::to_string(Ag_asmbler.get_pc())))
+                        // needs work
+                        asm_line = std::to_string(Ag_asmbler.get_pc());
+
+                        if(symb_table.add_symbol(labl, asm_line))
                         {
                             if(symb_table.check_forw_refs(labl))
                             {

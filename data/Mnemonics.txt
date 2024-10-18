@@ -1,5 +1,5 @@
 Mnemonic Opcode Operand
-data ~ value
+data -1 value
 ldc 0 value
 adc 1 value
 ldl 2 value
@@ -19,4 +19,4 @@ brz 15 offset
 brlz 16 offset
 br 17 offset
 HALT 18 ~
-SET ~ value
+SET -1 value

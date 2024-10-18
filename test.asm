@@ -1,6 +1,6 @@
 ; test1.asm 
 label:  ; an unused label 
- ldc 0 
+ ldc -0x116 
  ldc -5 
  ldc +5
 add 

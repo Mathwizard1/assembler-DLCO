@@ -173,7 +173,7 @@ int number_type(const std::string  &str_val)
     str_len = str_copy.size();
     force_upper(str_copy, str_len);
 
-    if(str_len > 2 && str_val[0] == '0' && (str_copy[1] == 'X'))
+    if(str_len > 2 && str_copy[0] == '0' && str_copy[1] == 'X')
     {
         for(int i = 2; i < str_len; i++)
         {
@@ -185,7 +185,7 @@ int number_type(const std::string  &str_val)
 
         return 16;
     }
-    else if(str_len > 2 && str_val[0] == '0' && (str_copy[1] == 'B'))
+    else if(str_len > 2 && str_copy[0] == '0' && (str_copy[1] == 'B'))
     {
         for(int i = 2; i < str_len; i++)
         {
@@ -197,7 +197,7 @@ int number_type(const std::string  &str_val)
 
         return 2;
     }
-    else if(str_val[0] == '0')
+    else if(str_copy[0] == '0')
     {
         bool oct = true;
         bool parse = false;
@@ -689,26 +689,6 @@ public:
         
         return prty_print(ProgC[i].ins_name) + " " + prty_print(ProgC[i].value);
     }
-
-    void dump_code()
-    {
-        int count = 0;
-        std::cout << "Processed internal Code: \n";
-        for(auto asm_line: ProgC)
-        {
-            if(asm_line.label != "")
-            {
-                std::cout << std::to_string(count) + "-> " << asm_line.label + ": " + prty_print(asm_line.ins_name) + " " + prty_print(asm_line.value) <<'\n';
-            }
-            else
-            {
-                std::cout << std::to_string(count) + "-> " << prty_print(asm_line.ins_name) + " " + prty_print(asm_line.value) <<'\n';                
-            }
-
-            count++;
-        }
-    }
-
 };
 
 
@@ -779,14 +759,12 @@ void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, error_msgs &err_tab,
                 val_ln = "000000FF";
             }
         
-            std::cout << prog_ln + " " + val_ln + " " << Ag_asmbler.get_line(index) << '\n';
+            // -t to display all internal code
+            if(Ag_asmbler.extra_param[0])
+            {
+                std::cout << prog_ln + " " + val_ln + " " << Ag_asmbler.get_line(index) << '\n';
+            }
         }
-    }
-
-    // -t to display all internal code
-    if(Ag_asmbler.extra_param[0])
-    {
-        Ag_asmbler.dump_code();
     }
 
     // -l to save errors in file

@@ -7,6 +7,7 @@ ldc 08ge ; not a number
 ldc ; missing operand 
 add 5 ; unexpected operand 
 ldc 5, 6; extra on end of line 
+ldc 0xz; extra on end of line 
 0def: ; bogus label name 
 fibble; bogus mnemonic 
 0def ; bogus mnemonic

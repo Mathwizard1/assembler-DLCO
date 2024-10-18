@@ -113,7 +113,7 @@ void print_tokens(std::vector<std::string> all_tokens)
 
 void exit_codes(int e)
 {
-    std::cout << "\n\n";
+    std::cout << "\n";
     if(e)
     {
         std::cout << "Error exit.\n";
@@ -265,10 +265,16 @@ std::string removeLettersInFirst4(const std::string& input) {
 }
 
 // Main function to convert all code to hexadecimal strings
-std::string hex_formatter(std::string str, int dig_len, int base_val = 10)
+std::string hex_formatter(std::string str, int dig_len, int base_val = 10, int offset = 0)
 {
     std::string num_str = removeLettersInFirst4(str);
     int val = std::stoi(num_str, (std::size_t *) 0, base_val);
+
+    if(offset != 0)
+    {
+        int ofs = val - offset - 1;
+        val = ofs;
+    }
 
     // Calculate the bit-width based on hex digit width
     int bit_width = 4 * dig_len;
@@ -298,6 +304,20 @@ std::string hex_formatter(std::string str, int dig_len, int base_val = 10)
     return ss.str();
 }
 
+// Function to convert hex string to binary and append it to the .o file
+void appendHexToBinaryFile(std::ofstream &file, const std::string &hex) {
+    // Convert the 8-digit hexadecimal string to a 32-bit binary string
+    unsigned long num = std::stoul(hex, nullptr, 16);  // Convert hex to an unsigned long
+
+    // Convert to 32-bit binary string
+    std::bitset<32> bin(num);
+
+    // Get the binary string representation without spaces
+    std::string binaryStr = bin.to_string();
+
+    // Append the binary data to the file
+    file.write(binaryStr.c_str(), binaryStr.size());  // Write the binary data to the file
+}
 
 class error_msgs
 {
@@ -430,6 +450,10 @@ public:
         }
     }
 
+    void clear_all()
+    {
+        prog_errors.clear();
+    }
 };
 
 class symbols_table
@@ -501,13 +525,13 @@ public:
         std::ofstream fp_file;
         if(lg_file)
         {
-            fp_file.open(fp_name);
+            fp_file.open(fp_name, std::ios::app);
         }
 
         std::cout << "\nSymbol table: \n";
         if(fp_file.is_open())
         {
-            fp_file << "Symbol table: \n";
+            fp_file << "\nSymbol table: \n";
         }
         else if(lg_file)
         {
@@ -529,6 +553,12 @@ public:
             fp_file.close();
         }
         std::cout << "\n\n";
+    }
+
+    void clear_all()
+    {
+        symbol_t.clear();
+        all_label_refs.clear();
     }
 };
 
@@ -554,6 +584,7 @@ public:
 private:
     typedef struct instruction_t
     {
+        bool oprnd_ofs = false;
         int op_code;
         bool needs_val;
 
@@ -565,8 +596,11 @@ private:
     }instruction;
 
     std::vector<asmbline> ProgC;
+
+public:
     std::unordered_map<std::string, instruction> IS;
 
+private:
     std::string prty_print(std::string &val)
     {
         return (val == blank_string)? "" : val;
@@ -588,6 +622,10 @@ private:
 
         if(tokens[2] != blank_string)
         {
+            if(tokens[2] == "offset")
+            {
+                temp_ins.oprnd_ofs = true;
+            }
             temp_ins.needs_val = true;
         } 
 
@@ -660,19 +698,10 @@ public:
         return false;
     }
 
-    bool ins_needs_val(std::string &ins_nm)
-    {
-        return IS[ins_nm].needs_val;
-    }
 
     void add_code(asmbline &asmdata)
     {
         ProgC.push_back(asmdata);
-    }
-
-    std::string get_opcode(std::string &ins_nm)
-    {
-        return std::to_string(IS[ins_nm].op_code);
     }
 
     asmbline get_code(int i)
@@ -697,10 +726,10 @@ void print_usage()
     std::cout << "Usage: ./asm.exe file_name.asm [optional]\n";
     std::cout << "[optional]: -t -d -s -l\n\n";
 
-    std::cout << "(trace): -t\n";
-    std::cout << "(dump): -d\n";
-    std::cout << "(symbol): -s\n";
-    std::cout << "(err logfile): -l\n";
+    std::cout << "(trace all): -t\n";
+    std::cout << "(display code): -d\n";
+    std::cout << "(print symbol): -s\n";
+    std::cout << "(force print err logfile): -l\n";
 
     std::cout << "\n----    ----    ----\nfor standalone exe: open the asm.exe\n----    ----    ----\n\n";
 }
@@ -712,13 +741,26 @@ void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, error_msgs &err_tab,
 
     std::string file_dump = file_fp + ".lst";
     std::string file_obj = file_fp + ".o";
-    std::string prog_ln, val_ln, op_ln;
 
-    //std::ofstream fp_obj, fp_dmp;
-
-    int net_code_ln = Ag_asmbler.get_pc();
     if(!err_flag)
     {
+
+        std::string prog_ln, val_ln, op_ln;
+
+        int ofs;
+        int net_code_ln = Ag_asmbler.get_pc();
+
+        std::ofstream fp_obj(file_obj);
+        std::ofstream fp_dmp(file_dump);
+
+        if(!(fp_dmp.is_open() && fp_obj.is_open()))
+        {
+            std::cout << "Unknown cause of Exit.\n";
+            exit_codes(1);
+        }
+
+        fp_dmp << "The internal processed code: \n";
+
         for(int index = 0; index < net_code_ln; index++)
         {
             asmbler::asmbline temp_asm = Ag_asmbler.get_code(index);
@@ -726,21 +768,27 @@ void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, error_msgs &err_tab,
             prog_ln = hex_formatter(std::to_string(index), full_len);
             if(temp_asm.ins_name != blank_string) 
             { 
+                ofs = 0;
                 val_ln = "000000";
-                op_ln = Ag_asmbler.get_opcode(temp_asm.ins_name);
-                if(Ag_asmbler.ins_needs_val(temp_asm.ins_name))
+                if(Ag_asmbler.IS[temp_asm.ins_name].needs_val)
                 {
                     if(temp_asm.base_val == blank_int)
                     {
                         if(symb_tab.check_undeclared(temp_asm.value))
                         {
                             std::cout << "faulty assembler\n";
-                            exit_codes(0);
+                            exit_codes(1);
                         }
                         else
                         {
+                            op_ln = temp_asm.value;
                             temp_asm.value = symb_tab.symbol_t[temp_asm.value].label_data;
                             temp_asm.base_val = number_type(temp_asm.value);
+
+                            if(Ag_asmbler.IS[temp_asm.ins_name].oprnd_ofs)
+                            {
+                                ofs = index;
+                            }
 
                             if(temp_asm.base_val < 0)
                             {
@@ -750,8 +798,9 @@ void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, error_msgs &err_tab,
                         }
                     }
 
-                    val_ln = hex_formatter(temp_asm.value, oprnd_len, temp_asm.base_val);
+                    val_ln = hex_formatter(temp_asm.value, oprnd_len, temp_asm.base_val, ofs);
                 }
+                op_ln = std::to_string(Ag_asmbler.IS[temp_asm.ins_name].op_code);
                 val_ln = val_ln + hex_formatter(op_ln , opc_len);
             }
             else
@@ -759,32 +808,41 @@ void ASSEMBLE(asmbler &Ag_asmbler, symbols_table &symb_tab, error_msgs &err_tab,
                 val_ln = "000000FF";
             }
         
-            // -t to display all internal code
+            // -t to display list file and symbol table
             if(Ag_asmbler.extra_param[0])
             {
                 std::cout << prog_ln + " " + val_ln + " " << Ag_asmbler.get_line(index) << '\n';
             }
+            // -d display all internal code
+            else if(Ag_asmbler.extra_param[2])
+            {
+                std::cout << Ag_asmbler.get_line(index) << '\n';
+            }
+
+            fp_dmp << prog_ln + " " + val_ln + " " << Ag_asmbler.get_line(index) << '\n';
+            appendHexToBinaryFile(fp_obj, val_ln);
         }
+
+        fp_dmp.close();
     }
 
     // -l to save errors in file
     err_tab.dump_errmsg(file_fp, (err_flag || Ag_asmbler.extra_param[1]));
     if(err_flag){ exit_codes(1); }
 
-    std::cout << file_fp << "\n";
-
-   // -s to display symbols table
-    file_dump = file_fp +"-symbols.txt";
+   // -s to save symbols table
     if(Ag_asmbler.extra_param[0] || Ag_asmbler.extra_param[3])
     {
         std::cout << file_dump << "\n";
-        symb_tab.dump_table(file_fp, Ag_asmbler.extra_param[3]);
+        symb_tab.dump_table(file_dump, Ag_asmbler.extra_param[3]);
     }
-    std::cout << file_dump << "\n";
 
+    // clean ups
     Ag_asmbler.clear_all();
-    //symb_tab.clear();
-    //err_tab.clear();
+    symb_tab.clear_all();
+    err_tab.clear_all();
+
+    exit_codes(0);
 }
 
 int main(int argc, char* argv[])
@@ -870,9 +928,8 @@ int main(int argc, char* argv[])
                     temp_asm.label = labl;
                     if(isValidString(labl))
                     {
-                        // needs work
-                        asm_line = std::to_string(Ag_asmbler.get_pc());
 
+                        asm_line = std::to_string(Ag_asmbler.get_pc());
                         if(symb_table.add_symbol(labl, asm_line))
                         {
                             if(symb_table.check_forw_refs(labl))
@@ -921,11 +978,11 @@ int main(int argc, char* argv[])
                     {
                         error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 5, true);
                     }
-                    else if(Ag_asmbler.ins_needs_val(tokens[0]) && tk_size == 1)
+                    else if(Ag_asmbler.IS[tokens[0]].needs_val && tk_size == 1)
                     {
                         error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 3, true);
                     }
-                    else if(Ag_asmbler.ins_needs_val(tokens[0]) && tk_size >= 2)
+                    else if(Ag_asmbler.IS[tokens[0]].needs_val && tk_size >= 2)
                     {
                         int num_code = number_type(tokens[1]);
                         temp_asm.base_val = num_code;
@@ -933,10 +990,13 @@ int main(int argc, char* argv[])
                         // Check for set / data
                         if((tokens[0] == "SET" || tokens[0] == "data") && num_code != blank_int)
                         {
-                            if(tokens[0] == "SET" && num_code > 0)
+                            if((tokens[0] == "SET") && num_code > 0)
                             {
                                 symb_table.symbol_t[labl].label_data = tokens[1];
-                                symb_table.symbol_t[labl].literal_type = true;
+                                if(labl == "")
+                                {
+                                    error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 10, true);
+                                }
                             }
                             else
                             {
@@ -980,7 +1040,7 @@ int main(int argc, char* argv[])
                             error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 1, false);
                         }
                     }
-                    else if(!Ag_asmbler.ins_needs_val(tokens[0]) && tk_size >= 2)
+                    else if(!Ag_asmbler.IS[tokens[0]].needs_val && tk_size >= 2)
                     {
                         error_table.add_errmsg(Ag_asmbler.get_pc(), store_line, 1, false);
                     }
@@ -1015,8 +1075,6 @@ int main(int argc, char* argv[])
     }
     
     ASSEMBLE(Ag_asmbler, symb_table, error_table, fp_name);
-
-    exit_codes(0);
     return 0;
 }
 

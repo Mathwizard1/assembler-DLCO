@@ -344,6 +344,7 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
         exit_codes(1);
     }
 
+    int stop_code = 0;
     for(Ag_emulator.PC = 0; Ag_emulator.PC < ins_size; Ag_emulator.PC++)
     {
         std::string ins_ln = Ag_emulator.all_ins[Ag_emulator.PC];
@@ -356,7 +357,8 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
             std::cout << Ag_emulator.get_op_name(opc) + " " + std::to_string(val) << '\n';
         }
 
-        Ag_emulator.ins_table(opc, val);
+        Ag_emulator.count_ins++;
+        stop_code = Ag_emulator.ins_table(opc, val);
 
         if(Ag_emulator.extra_param[2])
         {
@@ -364,7 +366,9 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
         }
 
         fp_if << ins_ln + " -> " + Ag_emulator.get_op_name(opc) + " " + std::to_string(val) << '\n';
-        fp_if << Ag_emulator.dump_val(opc) + "\n";            
+        fp_if << Ag_emulator.dump_val(opc) + "\n";   
+
+        if(stop_code){ break; }         
     }
 
     if(Ag_emulator.extra_param[1])
@@ -380,6 +384,7 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
         }
     }
 
+    fp_if << std::to_string(Ag_emulator.count_ins) + " instructions executed" + "\n"; 
     fp_if.close();
     exit_codes(0);
 }

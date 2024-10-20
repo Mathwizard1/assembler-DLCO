@@ -182,7 +182,7 @@ public:
         A = B  = PC = SP = 0;
         count_ins = 0;
 
-        for (int m = 0; m <  max_mem; m++)
+        for (int m = 0; m < max_mem; m++)
         {
             mem[m] = 0;
         }
@@ -325,9 +325,8 @@ std::cout << "Usage: ./emu.exe file_name.o [optional]\n";
     std::cout << "[optional]: -t -l -v -d\n";
 
     std::cout << "(trace): -t\n";
-    std::cout << "(instruction file): -l\n";
+    std::cout << "(log file): -l\n";
     std::cout << "(variable dump): -v\n";
-    std::cout << "(dump memory): -d\n";
 
     std::cout << "\n----    ----    ----\nfor standalone exe: open the emu.exe\n----    ----    ----\n\n";
 }
@@ -336,33 +335,25 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
 {
     int ins_size = Ag_emulator.all_ins.size();
 
-    std::string file_nm = "./" + file_fp.substr(0, file_fp.size() - 2) + ".log";
-    std::cout << file_nm << "\n";
+    std::string file_nm = file_fp.substr(0, file_fp.size() - 2);
 
-    std::ofstream fp_if;
-
-    if(Ag_emulator.extra_param[1] || Ag_emulator.extra_param[3])
+    std::ofstream fp_if(file_nm + ".txt");
+    if(!fp_if.is_open())
     {
-        fp_if.open(file_nm);
-        if(!fp_if.is_open())
-        {
-            std::cout << "Unknown cause of error\n";
-            exit_codes(1);
-        }
+        std::cout << "Unknown cause of error\n";
+        exit_codes(1);
     }
 
     for(Ag_emulator.PC = 0; Ag_emulator.PC < ins_size; Ag_emulator.PC++)
     {
         std::string ins_ln = Ag_emulator.all_ins[Ag_emulator.PC];
 
-        std::cout << ins_ln << '\n';
         int opc = std::stoi(ins_ln.substr(oprnd_len, opc_len), (std::size_t *)0, 16);
         int val = std::stoi(ins_ln.substr(0, full_len - opc_len), (std::size_t *)0, 16);
 
-
-        if(Ag_emulator.extra_param[0])
+        if(Ag_emulator.extra_param[0] && opc != 255)
         {
-            std::cout << ins_ln + " -> " + Ag_emulator.get_op_name(opc) + " " + std::to_string(val) << '\n';
+            std::cout << Ag_emulator.get_op_name(opc) + " " + std::to_string(val) << '\n';
         }
 
         Ag_emulator.ins_table(opc, val);
@@ -372,20 +363,17 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
             std::cout << Ag_emulator.dump_val(opc) + "\n";
         }
 
-        if(Ag_emulator.extra_param[1])
-        {
-            fp_if << ins_ln + " -> " + Ag_emulator.get_op_name(opc) + " " + std::to_string(val) << '\n';
-            fp_if << Ag_emulator.dump_val(opc) + "\n";            
-        }
+        fp_if << ins_ln + " -> " + Ag_emulator.get_op_name(opc) + " " + std::to_string(val) << '\n';
+        fp_if << Ag_emulator.dump_val(opc) + "\n";            
     }
 
-    if(Ag_emulator.extra_param[1] || Ag_emulator.extra_param[3])
+    if(Ag_emulator.extra_param[1])
     {
         fp_if << "\n\nMemory dump:\n";
         for (int m = 0; m <  max_mem; m++)
         {
             fp_if << Ag_emulator.mem[m] << " ";
-            if(m > 0 && m % 8 == 0)
+            if(m > 0 && m % 32 == 0)
             {
                 fp_if << "\n";
             }
@@ -428,10 +416,6 @@ int main(int argc, char* argv[])
                 else if(comd_arg == "-v")
                 {
                     Ag_emulator.extra_param[2] = true;                    
-                }
-                else if(comd_arg == "-d")
-                {
-                    Ag_emulator.extra_param[3] = true;                    
                 }
                 else
                 {

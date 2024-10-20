@@ -3,36 +3,11 @@
 #define blank_string "~"
 #define blank_int -32
 
-std::string str_splice(std::string &str, std::string del = " ", bool rev = false, std::string deflt = blank_string)
-{
-    int pos = str.find(del);
-    int str_size = str.size();
+#define opc_len 2
+#define oprnd_len 6
+#define full_len 8
 
-    // Check if the delimiter was found
-    if (pos != std::string::npos) {
-
-        if(rev)
-        {
-            // Get the substring from the pos to end
-            return str.substr(pos + 1, str_size - 1);
-        }
-        else
-        {
-            // Get the substring from the beginning to the position of the delimiter
-            return str.substr(0, pos);
-        }
-
-    } else {
-        if(deflt == blank_string)
-        {
-            return str;
-        }
-        else
-        {
-            return deflt;
-        }
-    }
-}
+#define max_mem 1000
 
 void lrstrip(std::string &str, bool lstrip = true, bool rstrip = true)
 {
@@ -120,63 +95,316 @@ void exit_codes(int e)
     exit(0);
 }
 
+void readHex(std::ifstream& file, std::vector<std::string> &hex_chunk) {
+    if (!file.is_open()) {
+        std::cerr << "Error: File is not open!" << std::endl;
+        return;
+    }
+
+    char buffer[33];  // Buffer to hold data
+
+    while (file.read(buffer, sizeof(buffer) - 1)) {
+        // Process the file
+        buffer[32] = '\0';
+
+        // Convert binary string to a uint32_t (unsigned 32-bit integer)
+        uint32_t value = std::bitset<32>(buffer).to_ulong();
+
+        // Convert the uint32_t value to an 8-digit hexadecimal string
+        std::stringstream hexStream;
+        hexStream << std::hex << std::setw(8) << std::setfill('0') << std::uppercase << value;
+
+        hex_chunk.push_back(hexStream.str());
+    }
+}
+
+
 class emultor
 {
-private:
-
-
-    void ins_table(int opc, int &pc, int &a, int &b, int &sp)
+public:
+    typedef struct instruction_t
     {
+        bool oprnd_ofs = false;
+        std::string ins_name;
+        bool needs_val;
 
+        instruction_t(std::string ins_nm = blank_string, bool nds_val = false)
+        {
+            ins_name = ins_nm;
+            needs_val = nds_val;
+        }
+    }instruction;
 
+private:
+    std::unordered_map<int, instruction> IS;
+
+    void parse_line(std::string ins_line)
+    {
+        std::vector<std::string> tokens = tokenizer(ins_line);
+        instruction temp_ins;
+        
+        int opcode = std::stoi(tokens[1]);
+        if(opcode >= 0)
+        {
+            temp_ins.ins_name = tokens[0];
+
+            if(tokens[2] != blank_string)
+            {
+                if(tokens[2] == "offset")
+                {
+                    temp_ins.oprnd_ofs = true;
+                }
+                temp_ins.needs_val = true;
+            } 
+
+            IS[opcode] = temp_ins;
+        }
+    }
+
+    void dump_instr_set()
+    {
+        for(auto is: IS)
+        {
+            int num_inputs = is.second.needs_val + 1;
+            std::cout << std::to_string(is.first) + "-> (" + is.second.ins_name + "," + std::to_string(num_inputs) + ")\n";
+        }
     }
 
 public:
+    int A, B, PC, SP;
+    int count_ins;
+
+    int mem[max_mem];
+    std::vector<std::string> all_ins;
+
+    emultor(bool dbg = false)
+    {
+        A = B  = PC = SP = 0;
+        count_ins = 0;
+
+        for (int m = 0; m <  max_mem; m++)
+        {
+            mem[m] = 0;
+        }
+
+        std::ifstream file("./data/Mnemonics.txt");
+
+        // String to store each line of the file.
+        bool heading = true;
+        std::string line;
+
+        if (file.is_open()) {
+            // Read each line from the file and store it in the
+            while (getline(file, line)) {
+                if(heading){ heading = false; continue;}
+
+                if(dbg)
+                {
+                    std::cout << line << "\n";
+                }
+                parse_line(line);
+            }
+
+            if(dbg){ dump_instr_set(); }
+            // Close the file stream once all lines have been
+            // read.
+            file.close();
+        }
+        else {
+            // Print an error message to the standard error
+            // stream if the file cannot be opened.
+            std::cout << "Mnemonics.txt not found in data.\n";
+            exit_codes(1);
+        }
+    }
+
+    int ins_table(int opc, int val)
+    {
+        switch (opc)
+        {
+        case 0:
+            B = A;
+            A = val;
+            break;
+        case 1:
+            A = A + val;
+            break;
+        case 2:
+            B = A;
+            A = mem[SP + val];
+            break;
+        case 3:
+            mem[SP + val] = A;
+            A = B;
+            break;
+        case 4:
+            A = mem[A + val];
+            break;
+        case 5:
+            mem[A + val] = B;
+            break;
+        case 6:
+            A = B + A;
+            break;
+        case 7:
+            A = B - A;
+            break;
+        case 8:
+            A = B << A; 
+            break;
+        case 9:
+            A = B >> A; 
+            break;
+        case 10:
+            SP = SP + val;
+            break;
+        case 11:
+            SP = A;
+            A = B;
+            break;
+        case 12:
+            B = A;
+            A = SP;
+            break;
+        case 13:
+            B = A;
+            A = PC;
+            PC = PC + val;
+            break;
+        case 14:
+            PC = A;
+            A = B;
+            break;
+        case 15:
+            if(A == 0)
+            {
+                PC = PC + val;
+            }
+            break;
+        case 16:
+            if(A < 0)
+            {
+                PC = PC + val;
+            }
+            break;
+        case 17:
+            PC = PC + val;
+            break;
+        case 18:
+            return 1;
+        default:
+            count_ins--;
+            break;
+        }
+
+        return 0;
+    }
+
+    std::string get_op_name(int opc)
+    {
+        if(IS.find(opc) != IS.end())
+        {
+            return IS[opc].ins_name;
+        }
+
+        return " ";
+    }
+
+    std::string dump_val(int opc)
+    {
+        return "PC = " + std::to_string(PC) + " SP = " + std::to_string(SP) + " A = " + std::to_string(A) + " B = " + std::to_string(B);
+    }
+
+    // extra param for -t -l -pd -dp
     bool extra_param[4] = {false, false, false, false};
 };
 
 void print_usage()
 {
-std::cout << "Usage: ./emu.exe file_name.asm [optional]\n";
-    std::cout << "[optional]: -t -d -s -l\n\n";
+std::cout << "Usage: ./emu.exe file_name.o [optional]\n";
+    std::cout << "[optional]: -t -l -v -d\n";
 
     std::cout << "(trace): -t\n";
-    std::cout << "(dump): -d\n";
-    std::cout << "(symbol): -s\n";
-    std::cout << "(err logfile): -l\n";
+    std::cout << "(instruction file): -l\n";
+    std::cout << "(variable dump): -v\n";
+    std::cout << "(dump memory): -d\n";
 
     std::cout << "\n----    ----    ----\nfor standalone exe: open the emu.exe\n----    ----    ----\n\n";
 }
 
-void EMULATE()
+void EMULATE(emultor &Ag_emulator, std::string file_fp)
 {
+    int ins_size = Ag_emulator.all_ins.size();
 
+    std::string file_nm = "./" + file_fp.substr(0, file_fp.size() - 2) + ".log";
+    std::cout << file_nm << "\n";
+
+    std::ofstream fp_if;
+
+    if(Ag_emulator.extra_param[1] || Ag_emulator.extra_param[3])
+    {
+        fp_if.open(file_nm);
+        if(!fp_if.is_open())
+        {
+            std::cout << "Unknown cause of error\n";
+            exit_codes(1);
+        }
+    }
+
+    for(Ag_emulator.PC = 0; Ag_emulator.PC < ins_size; Ag_emulator.PC++)
+    {
+        std::string ins_ln = Ag_emulator.all_ins[Ag_emulator.PC];
+
+        std::cout << ins_ln << '\n';
+        int opc = std::stoi(ins_ln.substr(oprnd_len, opc_len), (std::size_t *)0, 16);
+        int val = std::stoi(ins_ln.substr(0, full_len - opc_len), (std::size_t *)0, 16);
+
+
+        if(Ag_emulator.extra_param[0])
+        {
+            std::cout << ins_ln + " -> " + Ag_emulator.get_op_name(opc) + " " + std::to_string(val) << '\n';
+        }
+
+        Ag_emulator.ins_table(opc, val);
+
+        if(Ag_emulator.extra_param[2])
+        {
+            std::cout << Ag_emulator.dump_val(opc) + "\n";
+        }
+
+        if(Ag_emulator.extra_param[1])
+        {
+            fp_if << ins_ln + " -> " + Ag_emulator.get_op_name(opc) + " " + std::to_string(val) << '\n';
+            fp_if << Ag_emulator.dump_val(opc) + "\n";            
+        }
+    }
+
+    if(Ag_emulator.extra_param[1] || Ag_emulator.extra_param[3])
+    {
+        fp_if << "\n\nMemory dump:\n";
+        for (int m = 0; m <  max_mem; m++)
+        {
+            fp_if << Ag_emulator.mem[m] << " ";
+            if(m > 0 && m % 8 == 0)
+            {
+                fp_if << "\n";
+            }
+        }
+    }
+
+    fp_if.close();
+    exit_codes(0);
 }
 
 int main(int argc, char* argv[])
 {
-    //emultor Ag_emulator;
+    emultor Ag_emulator;
     std::cout << "====== ========== ======\n";
     std::cout << "Welcome to emulator emu\n";
 
-    int A, B, PC, SP;
-    A = B  = PC = SP = 0;
-
     std::string fp_name;
 
-    int a = std::stoi("-0xFF", (std::size_t *)0 ,16);
-    std::cout << a <<"\n";
-
-    int b = std::stoi("+17", (std::size_t *)0 ,8);
-    std::cout << b <<"\n";
-
-    int c = std::stoi("-011", (std::size_t *)0 ,2);
-    std::cout << c <<"\n";
-
-    std::string v = "1234";
-    std::cout << v.substr(1, v.size() - 1) << '\n';
-
-    /*if(argc == 1)
+    if(argc == 1)
     {
         std::cout << "enter the file name (with .o):\n";
         std::cin >> fp_name;
@@ -197,11 +425,11 @@ int main(int argc, char* argv[])
                 {
                     Ag_emulator.extra_param[1] = true;
                 }
-                else if(comd_arg == "-d")
+                else if(comd_arg == "-v")
                 {
                     Ag_emulator.extra_param[2] = true;                    
                 }
-                else if(comd_arg == "-s")
+                else if(comd_arg == "-d")
                 {
                     Ag_emulator.extra_param[3] = true;                    
                 }
@@ -215,22 +443,13 @@ int main(int argc, char* argv[])
     }
 
     std::cout << "\nSearching: " + fp_name << "\n";
+    std::string fp_copy = fp_name;
 
-    std::ifstream emu_file("./" + fp_name);
+    std::ifstream emu_file("./" + fp_name, std::ios::binary);
     if(emu_file.is_open())
     {
         std::cout << "File located: processing file.\n\n";
-
-        std::string store_line, pC, val, OPc;
-
-        // Read each line from the file and store it
-        while (getline(emu_file, store_line)) 
-        {
-            lrstrip(store_line);
-            //pC = str_splice(store_line, " ");
-
-            //val = str_splice(store_line, " ", true);
-        }
+        readHex(emu_file, Ag_emulator.all_ins);
 
         // Close the file
         emu_file.close();
@@ -239,11 +458,9 @@ int main(int argc, char* argv[])
     {
         std::cout << "No such file found in dir.\n";
         exit_codes(1);
-    }*/
+    }
 
-    //EMULATE(Ag_emulator, symb_tab, ISA, err_tab, fp_name);
-
-    exit_codes(0);
+    EMULATE(Ag_emulator, fp_name);
     return 0;
 }
 

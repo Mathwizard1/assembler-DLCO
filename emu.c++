@@ -149,7 +149,7 @@ public:
     int A, B, PC, SP;
     int count_ins;
 
-    std::unordered_map<int, int> Pmemory;
+    std::map<int, int> Pmemory;
     std::vector<std::string> all_ins;
 
     emultor(bool dbg = false)
@@ -328,9 +328,12 @@ void readHex(std::ifstream& file, emultor &Ag_emulator) {
         // only operand values taken
         int mem_val = value >> 4 * opc_len;
 
-        if(mem_val > 0x7FFFFF){ mem_val = mem_val - 0xFFFFFF - 1; }
-        Ag_emulator.Pmemory[Ag_emulator.all_ins.size()] = mem_val;
+        if(final_hex.substr(oprnd_len, opc_len) == "FF")
+        {
+            if(mem_val > 0x7FFFFF){ mem_val = mem_val - 0xFFFFFF - 1; }
+        }else { mem_val = 0; }
 
+        Ag_emulator.Pmemory[Ag_emulator.all_ins.size()] = mem_val;
         Ag_emulator.all_ins.push_back(final_hex);
     }
 }
@@ -401,9 +404,15 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
     if(Ag_emulator.extra_param[1])
     {
         fp_if << "\n\nMemory dump:\n";
+        int count = 0;
         for (auto m: Ag_emulator.Pmemory)
         {
-            fp_if << "[" + std::to_string(m.first) + "]" + " = " + std::to_string(m.second) << "\n";
+            fp_if << "[" + std::to_string(m.first) + "]" + ">" + std::to_string(m.second) << "  ";
+            count++;
+            if(count % 4 == 0)
+            {
+                fp_if << "\n";
+            }
         }
     }
 

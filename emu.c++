@@ -347,6 +347,8 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
     int stop_code = 0;
     while(true)
     {
+        if(Ag_emulator.PC >= Ag_emulator.all_ins.size()){ std::cout << "No halt found. Limit exceeded"; break; }
+
         std::string ins_ln = Ag_emulator.all_ins[Ag_emulator.PC];
 
         int opc = std::stoi(ins_ln.substr(oprnd_len, opc_len), (std::size_t *)0, 16);

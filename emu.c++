@@ -111,7 +111,7 @@ public:
     }instruction;
 
 private:
-    std::map<int, instruction> IS;
+    std::unordered_map<int, instruction> IS;
 
     void parse_line(std::string ins_line)
     {
@@ -167,11 +167,6 @@ public:
             // Read each line from the file and store it in the
             while (getline(file, line)) {
                 if(heading){ heading = false; continue;}
-
-                if(dbg)
-                {
-                    std::cout << line << "\n";
-                }
                 parse_line(line);
             }
 
@@ -188,6 +183,23 @@ public:
         }
     }
 
+    int check_mem(int address, int val, bool wr = true)
+    {
+        if(wr)
+        {
+            Pmemory[address] = val;
+            return 0;
+        }
+        else
+        {
+            if(Pmemory.find(address) != Pmemory.end())
+            {
+                return Pmemory[address];
+            }
+            else { Pmemory[address] = 0; return 0; }
+        }
+    }
+
     int ins_table(int opc, int val)
     {
         switch (opc)
@@ -201,17 +213,17 @@ public:
             break;
         case 2:
             B = A;
-            A = Pmemory[SP + val];
+            A = check_mem(SP + val, 0, false);
             break;
         case 3:
-            Pmemory[SP + val] = A;
+            check_mem(SP + val, A);
             A = B;
             break;
         case 4:
-            A = Pmemory[A + val];
+            A = check_mem(A + val, 0, false);
             break;
         case 5:
-            Pmemory[A + val] = B;
+            check_mem(A + val, B);
             break;
         case 6:
             A = B + A;
@@ -313,11 +325,11 @@ void readHex(std::ifstream& file, emultor &Ag_emulator) {
         hexStream << std::hex << std::setw(8) << std::setfill('0') << std::uppercase << value;
         std::string final_hex = hexStream.str();
 
-        if(final_hex.substr(oprnd_len, opc_len) == "FF")
-        {
-            if(value > 0x7FFFFF){ value = value - 0xFFFFFF - 1; }
-            Ag_emulator.Pmemory[Ag_emulator.all_ins.size()] = value;
-        }
+        // only operand values taken
+        int mem_val = value >> 4 * opc_len;
+
+        if(mem_val > 0x7FFFFF){ mem_val = mem_val - 0xFFFFFF - 1; }
+        Ag_emulator.Pmemory[Ag_emulator.all_ins.size()] = mem_val;
 
         Ag_emulator.all_ins.push_back(final_hex);
     }
@@ -374,8 +386,11 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
             std::cout << Ag_emulator.dump_val(opc) + "\n";
         }
 
-        fp_if << ins_ln + " -> " + Ag_emulator.get_op_name(opc) + " " + std::to_string(val) << '\n';
-        fp_if << Ag_emulator.dump_val(opc) + "\n";   
+        if(opc != 255)
+        {
+            fp_if << ins_ln + " -> " + Ag_emulator.get_op_name(opc) + " " + std::to_string(val) << '\n';
+            fp_if << Ag_emulator.dump_val(opc) + "\n"; 
+        }  
 
         if(stop_code){ break; }         
     }
@@ -386,15 +401,9 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
     if(Ag_emulator.extra_param[1])
     {
         fp_if << "\n\nMemory dump:\n";
-        int count = 0;
         for (auto m: Ag_emulator.Pmemory)
         {
-            fp_if << std::to_string(m.second) << " ";
-            if(count > 0 && count % 32 == 0)
-            {
-                fp_if << "\n";
-            }
-            count++;
+            fp_if << "[" + std::to_string(m.first) + "]" + " = " + std::to_string(m.second) << "\n";
         }
     }
 

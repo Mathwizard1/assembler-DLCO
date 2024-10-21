@@ -9,10 +9,14 @@ data 3
 data 2
 data 1
 
+x: data 0
+y: data 0
+
 main:
     ldc array
     a2sp
     ldl 0
+    br exit
     ldl 1
     ldl 2
-HALT
+exit: HALT

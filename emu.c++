@@ -7,7 +7,7 @@
 #define oprnd_len 6
 #define full_len 8
 
-#define max_mem 1000
+#define max_mem 5000
 
 void lrstrip(std::string &str, bool lstrip = true, bool rstrip = true)
 {
@@ -174,7 +174,7 @@ public:
     int A, B, PC, SP;
     int count_ins;
 
-    int mem[max_mem];
+    int Pmemory[max_mem];
     std::vector<std::string> all_ins;
 
     emultor(bool dbg = false)
@@ -184,7 +184,7 @@ public:
 
         for (int m = 0; m < max_mem; m++)
         {
-            mem[m] = 0;
+            Pmemory[m] = 0;
         }
 
         std::ifstream file("./data/Mnemonics.txt");
@@ -231,17 +231,17 @@ public:
             break;
         case 2:
             B = A;
-            A = mem[SP + val];
+            A = Pmemory[SP + val];
             break;
         case 3:
-            mem[SP + val] = A;
+            Pmemory[SP + val] = A;
             A = B;
             break;
         case 4:
-            A = mem[A + val];
+            A = Pmemory[A + val];
             break;
         case 5:
-            mem[A + val] = B;
+            Pmemory[A + val] = B;
             break;
         case 6:
             A = B + A;
@@ -315,14 +315,14 @@ public:
         return "PC = " + std::to_string(PC) + " SP = " + std::to_string(SP) + " A = " + std::to_string(A) + " B = " + std::to_string(B);
     }
 
-    // extra param for -t -l -pd -dp
-    bool extra_param[4] = {false, false, false, false};
+    // extra param for -t -l -v
+    bool extra_param[3] = {false, false, false};
 };
 
 void print_usage()
 {
 std::cout << "Usage: ./emu.exe file_name.o [optional]\n";
-    std::cout << "[optional]: -t -l -v -d\n";
+    std::cout << "[optional]: -t -l -v\n";
 
     std::cout << "(trace): -t\n";
     std::cout << "(log file): -l\n";
@@ -345,20 +345,23 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
     }
 
     int stop_code = 0;
-    for(Ag_emulator.PC = 0; Ag_emulator.PC < ins_size; Ag_emulator.PC++)
+    while(true)
     {
         std::string ins_ln = Ag_emulator.all_ins[Ag_emulator.PC];
 
         int opc = std::stoi(ins_ln.substr(oprnd_len, opc_len), (std::size_t *)0, 16);
         int val = std::stoi(ins_ln.substr(0, full_len - opc_len), (std::size_t *)0, 16);
 
-        if(Ag_emulator.extra_param[0] && opc != 255)
+        if(val > 0x7FFFFF){ val = val - 0xFFFFFF - 1; }
+
+        if(Ag_emulator.extra_param[0])
         {
             std::cout << Ag_emulator.get_op_name(opc) + " " + std::to_string(val) << '\n';
         }
 
         Ag_emulator.count_ins++;
         stop_code = Ag_emulator.ins_table(opc, val);
+        Ag_emulator.PC++;
 
         if(Ag_emulator.extra_param[2])
         {
@@ -371,12 +374,15 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
         if(stop_code){ break; }         
     }
 
+    std::cout << std::to_string(Ag_emulator.count_ins) + " instructions executed." + "\n";
+    fp_if << "\n" + std::to_string(Ag_emulator.count_ins) + " instructions executed" + "\n"; 
+
     if(Ag_emulator.extra_param[1])
     {
         fp_if << "\n\nMemory dump:\n";
         for (int m = 0; m <  max_mem; m++)
         {
-            fp_if << Ag_emulator.mem[m] << " ";
+            fp_if << Ag_emulator.Pmemory[m] << " ";
             if(m > 0 && m % 32 == 0)
             {
                 fp_if << "\n";
@@ -384,8 +390,8 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
         }
     }
 
-    fp_if << std::to_string(Ag_emulator.count_ins) + " instructions executed" + "\n"; 
     fp_if.close();
+
     exit_codes(0);
 }
 

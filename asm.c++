@@ -134,7 +134,7 @@ bool isValidString(const std::string& str) {
     }
 
     // Check if the first character is an alphabet
-    if (!std::isalpha(str[0])) {
+    if (!(std::isalpha(str[0]))) {
         return false;
     }
 
@@ -144,7 +144,7 @@ bool isValidString(const std::string& str) {
     for (size_t i = 1; i < str.size(); ++i) {
         if (std::isdigit(str[i])) {
             foundDigit = true;  // Mark that a digit was found
-        } else if (!std::isalpha(str[i])) {
+        } else if (!(std::isalpha(str[i]) || str[i] == '_')) {
             return false;  // If any special character is found, return false
         }
 

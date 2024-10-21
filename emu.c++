@@ -7,8 +7,6 @@
 #define oprnd_len 6
 #define full_len 8
 
-#define max_mem 5000
-
 void lrstrip(std::string &str, bool lstrip = true, bool rstrip = true)
 {
     if  (str.length() != 0)
@@ -95,29 +93,6 @@ void exit_codes(int e)
     exit(0);
 }
 
-void readHex(std::ifstream& file, std::vector<std::string> &hex_chunk) {
-    if (!file.is_open()) {
-        std::cerr << "Error: File is not open!" << std::endl;
-        return;
-    }
-
-    char buffer[33];  // Buffer to hold data
-
-    while (file.read(buffer, sizeof(buffer) - 1)) {
-        // Process the file
-        buffer[32] = '\0';
-
-        // Convert binary string to a uint32_t (unsigned 32-bit integer)
-        uint32_t value = std::bitset<32>(buffer).to_ulong();
-
-        // Convert the uint32_t value to an 8-digit hexadecimal string
-        std::stringstream hexStream;
-        hexStream << std::hex << std::setw(8) << std::setfill('0') << std::uppercase << value;
-
-        hex_chunk.push_back(hexStream.str());
-    }
-}
-
 
 class emultor
 {
@@ -136,7 +111,7 @@ public:
     }instruction;
 
 private:
-    std::unordered_map<int, instruction> IS;
+    std::map<int, instruction> IS;
 
     void parse_line(std::string ins_line)
     {
@@ -174,18 +149,13 @@ public:
     int A, B, PC, SP;
     int count_ins;
 
-    int Pmemory[max_mem];
+    std::unordered_map<int, int> Pmemory;
     std::vector<std::string> all_ins;
 
     emultor(bool dbg = false)
     {
         A = B  = PC = SP = 0;
         count_ins = 0;
-
-        for (int m = 0; m < max_mem; m++)
-        {
-            Pmemory[m] = 0;
-        }
 
         std::ifstream file("./data/Mnemonics.txt");
 
@@ -294,6 +264,10 @@ public:
             return 1;
         default:
             count_ins--;
+            if(PC >= 0)
+            {
+                Pmemory[PC] = val;
+            }
             break;
         }
 
@@ -318,6 +292,36 @@ public:
     // extra param for -t -l -v
     bool extra_param[3] = {false, false, false};
 };
+
+void readHex(std::ifstream& file, emultor &Ag_emulator) {
+    if (!file.is_open()) {
+        std::cerr << "Error: File is not open!" << std::endl;
+        return;
+    }
+
+    char buffer[33];  // Buffer to hold data
+
+    while (file.read(buffer, sizeof(buffer) - 1)) {
+        // Process the file
+        buffer[32] = '\0';
+
+        // Convert binary string to a uint32_t (unsigned 32-bit integer)
+        uint32_t value = std::bitset<32>(buffer).to_ulong();
+
+        // Convert the uint32_t value to an 8-digit hexadecimal string
+        std::stringstream hexStream;
+        hexStream << std::hex << std::setw(8) << std::setfill('0') << std::uppercase << value;
+        std::string final_hex = hexStream.str();
+
+        if(final_hex.substr(oprnd_len, opc_len) == "FF")
+        {
+            if(value > 0x7FFFFF){ value = value - 0xFFFFFF - 1; }
+            Ag_emulator.Pmemory[Ag_emulator.all_ins.size()] = value;
+        }
+
+        Ag_emulator.all_ins.push_back(final_hex);
+    }
+}
 
 void print_usage()
 {
@@ -347,7 +351,7 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
     int stop_code = 0;
     while(true)
     {
-        if(Ag_emulator.PC >= Ag_emulator.all_ins.size()){ std::cout << "No halt found. Limit exceeded"; break; }
+        if(Ag_emulator.PC >= Ag_emulator.all_ins.size()){ std::cout << "No halt found. Limit exceeded\n"; break; }
 
         std::string ins_ln = Ag_emulator.all_ins[Ag_emulator.PC];
 
@@ -382,13 +386,15 @@ void EMULATE(emultor &Ag_emulator, std::string file_fp)
     if(Ag_emulator.extra_param[1])
     {
         fp_if << "\n\nMemory dump:\n";
-        for (int m = 0; m <  max_mem; m++)
+        int count = 0;
+        for (auto m: Ag_emulator.Pmemory)
         {
-            fp_if << Ag_emulator.Pmemory[m] << " ";
-            if(m > 0 && m % 32 == 0)
+            fp_if << std::to_string(m.second) << " ";
+            if(count > 0 && count % 32 == 0)
             {
                 fp_if << "\n";
             }
+            count++;
         }
     }
 
@@ -446,7 +452,7 @@ int main(int argc, char* argv[])
     if(emu_file.is_open())
     {
         std::cout << "File located: processing file.\n\n";
-        readHex(emu_file, Ag_emulator.all_ins);
+        readHex(emu_file, Ag_emulator);
 
         // Close the file
         emu_file.close();

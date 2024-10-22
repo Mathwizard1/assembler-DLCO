@@ -286,6 +286,8 @@ std::string hex_formatter(std::string str, int dig_len, int base_val = 10, int o
     // Check if the input is within the valid range for the given width
     if (val < min_negative || val > max_positive) {
         std::cout << "\nOverflow detected by user input.\nNo actions taken, result maybe unexpected.\n";
+        if(val > max_positive) { val = max_positive; }
+        else { val = min_negative; }
     }
 
     // Convert to the appropriate hexadecimal

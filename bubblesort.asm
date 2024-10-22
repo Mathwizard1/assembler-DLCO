@@ -1,22 +1,81 @@
-array: data 10
-data 9
-data 8
-data 7
-data 6
-data 5
-data 4
-data 3
-data 2
-data 1
+; Bubble sort by Anshurup 2301ai02
+; sorts in descending order
+result: data 3
+        data 4
+        data 5
+        data 4
+        data 8
+        data -1
+        data 2
+len: SET 7
 
-x: data 0
-y: data 0
+; index
+i: data 0
+j: data 0
 
-main:
-    ldc array
+; main
+main: ldc len
+    adc -1
+
+    ; set i
+    ldc i
+    stnl 0
+
+; bubble sorting
+sort: ldc i
+    ldnl 0
+
+    ; when i < 0
+    brlz exit
+
+    ;set j = i
+    ldc j
+    stnl 0
+
+inner_loop: ldc j
+    ldnl 0
+
+    ; j < 1
+    brz exit_innerloop
+
+    a2sp
+    adj result
+    ldl 0
+    adj -1
+    ldl 0
+    sub
+
+    ; if arr[j] > arr[j - 1]
+    brlz continue
+
+    ldc j
+    ldnl 0
+    a2sp
+    adj result
+    ldl 0
+    adj -1
+    ldl 0
+
+    ; swap
+    adj 1
+    stl 0
+    adj -1
+    stl 0
+continue: ldc j
     a2sp
     ldl 0
-    br exit
-    ldl 1
-    ldl 2
+
+    ;j = j -1
+    adc -1
+    stl 0
+    br inner_loop
+
+exit_innerloop: ldc i
+    a2sp
+    ldl 0
+    ; i = i - 1
+    adc -1
+    stl 0
+    br sort
+    
 exit: HALT

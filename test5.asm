@@ -1,12 +1,3 @@
-;/*****************************************************************************
-;TITLE: 																		;														
-;AUTHOR: 
-;ROLL NO.: 
-;Declaration of Authorship
-;This cpp file, test5.cpp, is part of the assignment of
-;department of Computer Science and Engg, IIT Patna . 
-; Multiplication of two positive integers
-;*****************************************************************************/
 loop1: 
 	ldc res	; Load res address
    ldnl 0   ; Load res value into A

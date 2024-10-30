@@ -1,4 +1,4 @@
-; Code to store AP by anshurup 2301ai02
+; Code to create AP by anshurup 2301ai02
 main: ldc len
     a2sp
     ldc a

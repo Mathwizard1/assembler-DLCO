@@ -7,6 +7,11 @@
 #define oprnd_len 6
 #define full_len 8
 
+# define owner "Anshurup gupta 2301Ai02"
+/*
+    I declare that the below code is owned by me.
+*/
+
 void lrstrip(std::string &str, bool lstrip = true, bool rstrip = true)
 {
     if  (str.length() != 0)

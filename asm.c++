@@ -7,6 +7,10 @@
 #define oprnd_len 6
 #define full_len 8
 
+# define owner "Anshurup gupta 2301Ai02"
+/*
+    I declare that the below code is owned by me.
+*/
 
 std::string str_splice(std::string &str, std::string del = " ", bool rev = false, std::string deflt = blank_string)
 {

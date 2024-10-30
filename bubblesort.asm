@@ -4,8 +4,10 @@ result: data -2
         data -10
         data 4
         data 1
+        data 10
         data 503
-len: SET 5
+        data 4
+len: SET 7
 
 ; index
 i: data 0
